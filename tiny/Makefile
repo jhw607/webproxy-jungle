@@ -5,6 +5,12 @@ CFLAGS = -O2 -Wall -I .
 # Others systems will probably require something different.
 LIB = -lpthread
 
+# make: tiny
+
+# tiny: 
+# 	./tiny 127.0.0.1 9190
+# 172.17.0.2
+
 all: tiny cgi
 
 tiny: tiny.c csapp.o

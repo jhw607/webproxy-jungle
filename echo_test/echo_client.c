@@ -13,7 +13,7 @@ int main(int argc, char **argv){
     port = argv[2];
 
     clientfd = Open_clientfd(host, port);
-    Ri0_readinitb(&rio, clientfd);
+    Rio_readinitb(&rio, clientfd);
 
     while(Fgets(buf, MAXLINE, stdin) != NULL){
         Rio_writen(clientfd, buf, strlen(buf));

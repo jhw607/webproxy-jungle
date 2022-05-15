@@ -6,10 +6,13 @@
 
 CC = gcc
 
-make: echo_server
+make: echo_server echo_client
 
-test: echo_server.o ./
+ctest: 
+	./echo_client 127.0.0.1 9190
 
+stest: 
+	./echo_server  9190
 
 csapp.o: csapp.c csapp.h
 	$(CC) -c csapp.c
@@ -19,6 +22,12 @@ echo_server.o: echo_server.c csapp.h
 
 echo_server: echo_server.o csapp.o
 	$(CC) echo_server.o csapp.o -o echo_server
+
+echo_client.o: echo_client.c csapp.h
+	$(CC)  -c echo_client.c
+
+echo_client: echo_client.o csapp.o
+	$(CC) echo_client.o csapp.o -o echo_client
 
 # Creates a tarball in ../proxylab-handin.tar that you can then
 # hand in. DO NOT MODIFY THIS!
