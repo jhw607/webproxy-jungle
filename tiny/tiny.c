@@ -8,12 +8,12 @@
  */
 #include "csapp.h"
 
-void doit(int fd);
+void doit(int fd);                                            // 트랜잭션 처리
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *filename, char *cgiargs);
-void serve_static(int fd, char *filename, int filesize);
+void serve_static(int fd, char *filename, int filesize, char *method);
 void get_filetype(char *filename, char *filetype);
-void serve_dynamic(int fd, char *filename, char *cgiargs);
+void serve_dynamic(int fd, char *filename, char *cgiargs, char *method);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg,
                  char *longmsg);
 
@@ -54,7 +54,7 @@ void doit(int fd){
   printf("Request headers:\n");
   printf("%s", buf);
   sscanf(buf, "%s %s %s", method, uri, version);
-  if(strcasecmp(method, "GET")){
+  if(strcasecmp(method, "GET") && strcasecmp(method, "HEAD")){  // method가 GET이 아니고, HEAD가 아닐 때 에러발생
     clienterror(fd, method, "501", "Not implemented", "Tiny does not implement this method");
     return;
   }
@@ -71,14 +71,14 @@ void doit(int fd){
       clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't read the file");
       return;
     }
-    serve_static(fd, filename, sbuf.st_size);
+    serve_static(fd, filename, sbuf.st_size, method);   // 인자로 method 추가
   }
   else{
     if(!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)){
       clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't run the CGI program");
       return;
     }
-    serve_dynamic(fd, filename, cgiargs);
+    serve_dynamic(fd, filename, cgiargs, method);   // 인자로 method 추가
   }
 }
 
@@ -125,7 +125,7 @@ int parse_uri(char *uri, char *filename, char *cgiargs){
   else{
     ptr = index(uri, '?');
     if(ptr){
-      strcpy(cgiargs, '?');
+      strcpy(cgiargs, ptr+1);
       *ptr = '\0';
     }
     else
@@ -136,9 +136,9 @@ int parse_uri(char *uri, char *filename, char *cgiargs){
   }
 }
 
-void serve_static(int fd, char *filename, int filesize){
+void serve_static(int fd, char *filename, int filesize, char *method){
   int srcfd;
-  char *srcp, filetype[MAXLINE], buf[MAXBUF];
+  char *srcp, filetype[MAXLINE], buf[MAXBUF], mbuf[MAXBUF];
 
   get_filetype(filename, filetype);
   sprintf(buf, "HTTP/1.0 200 OK\r\n");
@@ -150,11 +150,15 @@ void serve_static(int fd, char *filename, int filesize){
   printf("Response headers:\n");
   printf("%s", buf);
 
-  srcfd = Open(filename, O_RDONLY, 0);
-  srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
-  Close(srcfd);
-  Rio_writen(fd, srcp, filesize);
-  Munmap(srcp, filesize);
+  if(!strcmp(method, "GET")){
+    srcfd = Open(filename, O_RDONLY, 0);
+    // srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
+    srcp = malloc(filesize);
+    Rio_readn(srcfd, mbuf, filesize);
+    Close(srcfd);
+    Rio_writen(fd, mbuf, filesize);
+    free(srcp);
+  }
 }
 
 void get_filetype(char *filename, char *filetype){
@@ -166,11 +170,13 @@ void get_filetype(char *filename, char *filetype){
     strcpy(filetype, "image/png");
   else if(strstr(filename, ".jpg"))
     strcpy(filetype, "image/jpeg");
+  else if(strstr(filename, ".mp4"))
+    strcpy(filetype, "video/mp4");
   else 
     strcpy(filetype, "text/plain");
 }
 
-void serve_dynamic(int fd, char *filename, char *cgiargs){
+void serve_dynamic(int fd, char *filename, char *cgiargs, char *method){
   char buf[MAXLINE], *emptylist[] = {NULL};
 
   sprintf(buf, "HTTP/1.0 200 OK\r\n");
@@ -179,7 +185,8 @@ void serve_dynamic(int fd, char *filename, char *cgiargs){
   Rio_writen(fd, buf, strlen(buf));
 
   if(Fork() == 0){
-    setenv("QUERY_STRING", cgiargs, 1);
+    setenv("QUERY_STRING", cgiargs, 1); // 1 : 기존값이 있으면 덮어씌움
+    setenv("REQUEST_METHOD", method, 1);
     Dup2(fd, STDOUT_FILENO);
     Execve(filename, emptylist, environ);
   }

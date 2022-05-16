@@ -12,12 +12,13 @@ int main(void) {
   if((buf = getenv("QUERY_STRING")) != NULL){
     p = strchr(buf, '&');
     *p = '\0';
-    strcpy(arg1, buf);
-    strcpy(arg2, p+1);
+    strcpy(arg1, buf+2);
+    strcpy(arg2, p+3);
     n1 = atoi(arg1);
     n2 = atoi(arg2);
   }
 
+  // body
   sprintf(content, "QUERY_STRING=%s", buf);
   sprintf(content, "Welcome to add.com: ");
   sprintf(content, "%sTHE Internet addition portal.\r\n<p>", content);
@@ -27,9 +28,12 @@ int main(void) {
   printf("Connection: close\r\n");
   printf("Content-length: %d\r\n", (int)strlen(content));
   printf("Content-type: text/html\r\n\r\n");
-  printf("%s", content);
+  if(!strcmp(getenv("REQUEST_METHOD"), "GET")){
+    printf("%s", content);
+  }
   fflush(stdout);
 
   exit(0);
 }
 /* $end adder */
+
